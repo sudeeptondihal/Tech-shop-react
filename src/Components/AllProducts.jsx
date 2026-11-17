@@ -1,0 +1,196 @@
+import React, { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { addToCart } from "../Redux/cartSlice.js";
+import { sortMenu, brandsMenu, categoryMenu } from "../data/filterBarData.js";
+import Services from "./Service.jsx";
+import { Link } from "react-router-dom";
+
+function AllProducts() {
+    const productsData = useSelector(
+        (state) => state.products.products
+    );
+
+    const dispatch = useDispatch();
+
+    const [selectedSort, setSelectedSort] = useState("");
+    const [selectedBrands, setSelectedBrands] = useState([]);
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [addedProductId, setAddedProductId] = useState(null);
+    const [priceRange, setPriceRange] = useState(19990);
+
+    const handleBrandChange = (brand) => {
+        setSelectedBrands((previousBrands) =>
+            previousBrands.includes(brand)
+                ? previousBrands.filter((item) => item !== brand)
+                : [...previousBrands, brand]
+        );
+    };
+
+    const handleCategoryChange = (category) => {
+        setSelectedCategories((previousCategories) =>
+            previousCategories.includes(category)
+                ? previousCategories.filter((item) => item !== category)
+                : [...previousCategories, category]
+        );
+    };
+
+    const getPrice = (price) => {
+        return Number(
+            String(price).replace(/[₹,]/g, "")
+        );
+    };
+
+    let filteredProducts = productsData.filter((product) => {
+
+        const brandMatch =
+            selectedBrands.length === 0 ||
+            selectedBrands.includes(product.brand);
+
+        const categoryMatch =
+            selectedCategories.length === 0 ||
+            selectedCategories.includes(product.category);
+
+        const priceMatch =
+            getPrice(product.finalPrice) <= priceRange;
+
+        return brandMatch && categoryMatch && priceMatch;
+    });
+
+    if (selectedSort === "Price(Lowest First)") {
+        filteredProducts = [...filteredProducts].sort(
+            (a, b) => getPrice(a.finalPrice) - getPrice(b.finalPrice)
+        );
+    }
+
+    if (selectedSort === "Price(Highest First)") {
+        filteredProducts = [...filteredProducts].sort(
+            (a, b) => getPrice(b.finalPrice) - getPrice(a.finalPrice)
+        );
+    }
+
+    if (selectedSort === "Top Rated") {
+        filteredProducts = [...filteredProducts].sort(
+            (a, b) => b.rateCount - a.rateCount
+        );
+    }
+
+    // Add product to cart
+    const handleAddToCart = (product) => {
+        dispatch(addToCart(product));
+
+        setAddedProductId(product.id);
+
+        setTimeout(() => {
+            setAddedProductId(null);
+        }, 2000);
+    };
+
+    const handleClearFilters = () => {
+        setSelectedSort("");
+        setSelectedBrands([]);
+        setSelectedCategories([]);
+        setPriceRange(19990);
+    };
+
+    const hasActiveFilters =
+        selectedSort !== "" ||
+        selectedBrands.length > 0 ||
+        selectedCategories.length > 0 ||
+        priceRange !== 19990;
+
+    return (
+        <>
+            <div className="products-page">
+                <aside className="filter-sidebar">
+                    <h3>Sort By</h3>
+                    <hr />
+                    <div className="sort-menu">
+                        {
+                            sortMenu.map((item) => (
+                                <button key={item.id} className={selectedSort === item.title ? "selected-sort" : ""}
+                                    onClick={() => setSelectedSort(item.title)}>
+                                    {item.title}
+                                </button>
+                            ))
+                        }
+                    </div>
+
+                    <h3 className="filter-heading">Filter By</h3>
+                    <hr />
+
+                    <h4>Brands</h4>
+
+                    {
+                        brandsMenu.map((item) => (
+                            <label className="filter-option" key={item.id}>
+                                <input type="checkbox" checked={selectedBrands.includes(item.label)}
+                                    onChange={() => handleBrandChange(item.label)} />
+                                {item.label}
+                            </label>
+                        ))
+                    }
+
+                    <h4 className="category-heading">Category</h4>
+
+                    {
+                        categoryMenu.map((item) => (
+                            <label className="filter-option" key={item.id}>
+                                <input type="checkbox" checked={selectedCategories.includes(item.label)}
+                                    onChange={() => handleCategoryChange(item.label)} />
+                                {item.label}
+                            </label>
+                        ))
+                    }
+
+                    <h4 className="price-heading">Price</h4>
+
+                    <div className="price-range">
+                        <p className="selected-price">₹{priceRange.toLocaleString("en-IN")}</p>
+
+                        <input type="range" min="449" max="19990" step="100" value={priceRange}
+                            onChange={(e) => setPriceRange(Number(e.target.value))} />
+                    </div>
+
+                    {
+                        hasActiveFilters && (
+                            <button className="clear-filters" onClick={handleClearFilters}>
+                                Clear All Filters
+                            </button>
+                        )}
+                </aside>
+
+                <main className="all-products">
+                    <div className="products-grid">
+                        {
+                            filteredProducts.map((product) => (
+                                <div className="card product-page-card" key={product.id}>
+                                    <Link to={`/product/${product.id}`} className="product-link">
+                                        <img src={product.images[0]} alt={product.title} />
+                                        <p className="star">{"★".repeat(product.rateCount)}</p>
+                                        <h3>{product.title}</h3>
+                                        <p>{product.info}</p>
+                                    </Link>
+
+                                    <hr />
+
+                                    <p>₹{product.finalPrice}
+                                        <del style={{ color: "gray" }}>₹{product.originalPrice}</del>
+                                    </p>
+
+                                    <button className={`addtocart ${addedProductId === product.id ? "added" : ""}`}
+                                        onClick={() => handleAddToCart(product)}>
+                                        {addedProductId === product.id ? "Added" : "Add to Cart"}
+                                    </button>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </main>
+            </div>
+            <Services />
+        </>
+    );
+
+}
+
+export default AllProducts;
